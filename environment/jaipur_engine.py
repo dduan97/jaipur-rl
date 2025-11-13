@@ -18,6 +18,9 @@ class GoodType(enum.StrEnum):
     def is_expensive_good(self):
         return self in {GoodType.DIAMOND, GoodType.GOLD, GoodType.SILVER}
 
+    def __repr__(self):
+        return self.value
+
 
 class ActionType(enum.StrEnum):
     TRADE_WITH_MARKETPLACE = "TRADE_WITH_MARKETPLACE"
@@ -42,8 +45,8 @@ class JaipurAction:
 
 
 class Player:
-    def __init__(self, p_id):
-        self.id = p_id
+    def __init__(self, name: str):
+        self.name = name
         self.reset()
 
     def reset(self):
@@ -78,6 +81,11 @@ class Player:
     def add_tokens(self, tokens: list[int]):
         self.tokens.extend(tokens)
 
+    def __repr__(self):
+        template = f"""PLAYER {self.name}:
+CARDS: {self.cards}, BONUS: {self.bonus}, OPP_POINTS: {self.opp_points}, OPP_HERD_SIZE: {self.opp_herd_size}, TOKENS: {self.tokens}"""
+        return template
+
 
 class GoodsDeck:
     def __init__(self, goods_counts: dict | None = None):
@@ -93,13 +101,13 @@ class GoodsDeck:
         # 8 spice
         # 10 leather
         goods_counts = goods_counts or {
-            GoodType.CAMEL: 11,
             GoodType.DIAMOND: 6,
             GoodType.GOLD: 6,
             GoodType.SILVER: 6,
             GoodType.SILK: 8,
             GoodType.SPICE: 8,
             GoodType.LEATHER: 10,
+            GoodType.CAMEL: 11,
         }
 
         for goods_type, count in goods_counts.items():
@@ -124,6 +132,9 @@ class GoodsDeck:
     def num_remaining(self):
         return len(self.cards)
 
+    def __repr__(self):
+        return f"""NUM CARDS IN DECK: {len(self.cards)}"""
+
 
 class TokenDeck:
     def __init__(self):
@@ -134,12 +145,12 @@ class TokenDeck:
         # 1 camel
         # 3 soe
         self.goods_type_tokens = {
-            GoodType.LEATHER: [4, 3, 2, 1, 1, 1, 1, 1, 1],
-            GoodType.SPICE: [5, 3, 3, 2, 2, 1, 1],
-            GoodType.SILK: [5, 3, 3, 2, 2, 1, 1],
-            GoodType.SILVER: [5, 5, 5, 5, 5],
-            GoodType.GOLD: [6, 6, 5, 5, 5],
             GoodType.DIAMOND: [7, 7, 5, 5, 5],
+            GoodType.GOLD: [6, 6, 5, 5, 5],
+            GoodType.SILVER: [5, 5, 5, 5, 5],
+            GoodType.SILK: [5, 3, 3, 2, 2, 1, 1],
+            GoodType.SPICE: [5, 3, 3, 2, 2, 1, 1],
+            GoodType.LEATHER: [4, 3, 2, 1, 1, 1, 1, 1, 1],
         }
 
         # 18 total bonus tokens
@@ -170,7 +181,14 @@ class TokenDeck:
         return 0
 
     def empty_goods_tokens(self):
-        return [g for g, v in self.goods_type_tokens if not v]
+        return [g for g, v in self.goods_type_tokens.items() if not v]
+
+    def __repr__(self):
+        num_goods_tokens = sum(len(v) for v in self.goods_type_tokens.values())
+        num_bonus_tokens = sum(len(v) for v in self.bonus_tokens.values())
+        return f"""NUM GOODS TOKENS: {num_goods_tokens}
+NUM BONUS TOKENS: {num_bonus_tokens}"""
+
 
 
 @dataclasses.dataclass
@@ -179,31 +197,46 @@ class JaipurGameState:
     tokens: TokenDeck
     marketplace: dict[GoodType, int]
     discard: dict[GoodType, int]
+    player_names: list[str]
+    players: dict[str, Player]
 
-    player1: Player
-    player2: Player
+    def __repr__(self):
+        goods_str = str(self.goods).replace('\n', '\n\t')
+        tokens_str = str(self.tokens).replace('\n', '\n\t')
+        marketplace_str = str(self.marketplace).replace('\n', '\n\t')
+        players_str = '\n\t'.join(str(v).replace('\n', '\n\t') for v in self.players.values())
+        return f"""GOODS:
+\t{goods_str}
+TOKENS:
+\t{tokens_str}
+MARKETPLACE:
+\t{marketplace_str}
+PLAYERS:
+\t{players_str}
+"""
 
 
 class JaipurEngine:
-    def __init__(self):
+    def __init__(self, player_names: list[str]):
 
-        self.game_state = self.init_game_state()
+        self.game_state = self.init_game_state(player_names)
         self.all_actions = self.get_all_actions()
 
-    def init_game_state(self) -> JaipurGameState:
+    def init_game_state(self, player_names: list[str]) -> JaipurGameState:
         goods = GoodsDeck()
         tokens = TokenDeck()
 
-        p1 = Player(0)
-        p2 = Player(1)
-        p1.reset()
-        p2.reset()
+        players = {}
+        for name in player_names:
+            player = Player(name)
+            player.reset()
+            players[name] = player
 
         marketplace = {g: 0 for g in GoodType}
         discard = {g: 0 for g in GoodType}
 
         # adding 3 camel cards to the marketplace
-        for i in range(3):
+        for _ in range(3):
             marketplace[GoodType.CAMEL] += 1
             goods.deal_camel()
 
@@ -211,35 +244,33 @@ class JaipurEngine:
         goods.shuffle()
 
         # adding 2 cards from shuffled cards to the marketplace
-        for i in range(2):
+        for _ in range(2):
             good = goods.deal()
+            print('Adding good to marketplace', good)
             # This won't happen but pytype needs it
             if good is not None:
                 marketplace[good] += 1
-
-        print("Marketplace:", marketplace)
+        print('Marketplace:', marketplace)
 
         # giving out 5 cards to each player
-        for p in p1, p2:
+        for player in players.values():
             for _ in range(5):
                 # pop card from deck
                 c = goods.deal()
-                p.add_good(c)
+                player.add_good(c)
 
-        print("Player 1 cards: ", p1.cards)
-        print("Player 2 cards: ", p2.cards)
 
         # setting opponent's herd size
-        p1.opp_herd_size = p2.herd_size()
-        p2.opp_herd_size = p1.herd_size()
+        players[player_names[0]].opp_herd_size = players[player_names[1]].herd_size()
+        players[player_names[1]].opp_herd_size = players[player_names[0]].herd_size()
 
         return JaipurGameState(
             goods=goods,
             tokens=tokens,
             marketplace=marketplace,
             discard=discard,
-            player1=p1,
-            player2=p2,
+            player_names=player_names,
+            players=players,
         )
 
     @classmethod
@@ -274,11 +305,13 @@ class JaipurEngine:
                     if set(in_hand_goods) & set(marketplace_goods):
                         continue
                     # Otherwise we have a valid action!
-                    actions.append(JaipurAction(
-                        action_type=ActionType.TRADE_WITH_MARKETPLACE,
-                        trade_from_hand=dict(Counter(in_hand_goods)),
-                        trade_from_marketplace=dict(Counter(marketplace_goods)),
-                    ))
+                    actions.append(
+                        JaipurAction(
+                            action_type=ActionType.TRADE_WITH_MARKETPLACE,
+                            trade_from_hand=dict(Counter(in_hand_goods)),
+                            trade_from_marketplace=dict(Counter(marketplace_goods)),
+                        )
+                    )
 
         # And then all the sell actions
         for num_to_sell in range(1, 7):
@@ -287,15 +320,21 @@ class JaipurEngine:
                 if num_to_sell == 7 and good_type.is_expensive_good():
                     continue
 
-                actions.append(JaipurAction(
-                    action_type=ActionType.SELL_CARDS,
-                    sell_from_hand={good_type: num_to_sell},
-                ))
+                actions.append(
+                    JaipurAction(
+                        action_type=ActionType.SELL_CARDS,
+                        sell_from_hand={good_type: num_to_sell},
+                    )
+                )
 
         print(f"Initialized {len(actions)} actions")
         return actions
 
-    def is_valid(self, player: Player, action: JaipurAction) -> bool:
+    def is_valid(self, player_name: str, action: JaipurAction) -> bool:
+        if player_name not in self.game_state.players:
+            raise ValueError("Unknown player", player_name)
+        player = self.game_state.players[player_name]
+
         if action.action_type == ActionType.TAKE_ONE_GOOD:
             # This is valid if the player has fewer than 7 cards
             if action.take_one_good_type is None:
@@ -345,8 +384,15 @@ class JaipurEngine:
         else:
             raise ValueError("Unknown action type: %s", action.action_type)
 
-    def perform_action(self, player: Player, action: JaipurAction):
-        if not self.is_valid(player, action):
+    def perform_action(self, player_name: str, action_idx: int):
+        if player_name not in self.game_state.players:
+            raise ValueError("Unknown player", player_name)
+
+        player = self.game_state.players[player_name]
+        action = self.all_actions[action_idx]
+        print('Processing action', action, 'for', player_name)
+
+        if not self.is_valid(player_name, action):
             raise ValueError("Invalid action for game state", action, self.game_state)
 
         if action.action_type == ActionType.TAKE_ONE_GOOD:
@@ -377,10 +423,12 @@ class JaipurEngine:
             for good_type, count in action.trade_from_hand.items():
                 for _ in range(count):
                     player.remove_good(good_type)
+                    self.game_state.marketplace[good_type] += 1
 
             for good_type, count in action.trade_from_marketplace.items():
                 for _ in range(count):
                     self.game_state.marketplace[good_type] -= 1
+                    player.add_good(good_type)
 
         elif action.action_type == ActionType.SELL_CARDS:
             if action.sell_from_hand is None:
@@ -407,9 +455,10 @@ class JaipurEngine:
         else:
             raise ValueError("Unknown action type: %s", action.action_type)
 
-    def add_camel_token(self):
-        p1 = self.game_state.player1
-        p2 = self.game_state.player2
+    def finalize_round(self):
+        """Call this after a round is finished. This will add the camel token."""
+        p1 = self.game_state.players[self.game_state.player_names[0]]
+        p2 = self.game_state.players[self.game_state.player_names[1]]
         # checking for which player had the most camels
         if p1.herd_size() != p2.herd_size():
             camel_bonus_player = p1 if p1.herd_size() > p2.herd_size() else p2
@@ -424,18 +473,63 @@ class JaipurEngine:
             return True
         return False
 
-    def get_masked_options(self, agent: str):
-        """Given a player, return a the masked set of options that are available"""
-        if agent == "player_1":
-            player = self.game_state.player1
-        elif agent == "player_2":
-            player = self.game_state.player2
-        else:
-            print("Error! Incorrect agent entered.")
-            return
+    def compute_score(self, player_name: str) -> int:
+        player = self.game_state.players[player_name]
+        return sum(player.tokens)
 
-        is_valid_for_player = [self.is_valid(player, action) for action in self.all_actions]
+    def get_masked_options(self, player_name: str):
+        """Given a player, return a the masked set of options that are available"""
+        is_valid_for_player = [
+            self.is_valid(player_name, action) for action in self.all_actions
+        ]
         return is_valid_for_player
 
+    def get_observation(self, player_name: str):
+        if player_name not in self.game_state.players:
+            raise ValueError("Invalid player name", player_name)
+        player = self.game_state.players[player_name]
+        # hmmm not ideal
+        opponent = [p for k, p in self.game_state.players.items() if k != player_name][
+            0
+        ]
 
-j = JaipurEngine()
+        features = []
+        # First the marketplace features
+        for good_type in GoodType:
+            features.append(self.game_state.marketplace[good_type])
+
+        # Then the player's hand
+        for good_type in GoodType:
+            if good_type == GoodType.CAMEL:
+                continue
+            features.append(player.cards[good_type])
+
+        # Then the opponent hand size
+        features.append(opponent.hand_size())
+
+        # Then the herd sizes
+        features.append(player.herd_size())
+        features.append(opponent.herd_size())
+
+        # And the goods tokens
+        for good_type in GoodType:
+            if good_type == GoodType.CAMEL:
+                continue
+            features.append(len(self.game_state.tokens.goods_type_tokens[good_type]))
+
+        # And the bonus tokens
+        for bonus_size in [3, 4, 5]:
+            features.append(len(self.game_state.tokens.bonus_tokens[bonus_size]))
+
+        # And whether the deck has cards left:
+        features.append(1 if self.game_state.goods.cards else 0)
+
+        # And the cards in the discard:
+        for good_type in GoodType:
+            if good_type == GoodType.CAMEL:
+                continue
+            features.append(self.game_state.discard[good_type])
+
+        assert len(features) == 32, f"Got {len(features)} features"
+        return features
+
