@@ -1,12 +1,13 @@
 import dataclasses
-import enum
+from strenum import StrEnum
 import itertools
 from collections import Counter
+import copy
 
 import numpy as np
 
 
-class GoodType(enum.StrEnum):
+class GoodType(StrEnum):
     DIAMOND = "DIAMOND"
     GOLD = "GOLD"
     SILVER = "SILVER"
@@ -22,7 +23,7 @@ class GoodType(enum.StrEnum):
         return self.value
 
 
-class ActionType(enum.StrEnum):
+class ActionType(StrEnum):
     TRADE_WITH_MARKETPLACE = "TRADE_WITH_MARKETPLACE"
     TAKE_ONE_GOOD = "TAKE_ONE_GOOD"
     TAKE_CAMELS = "TAKE_CAMELS"
@@ -190,7 +191,6 @@ class TokenDeck:
 NUM BONUS TOKENS: {num_bonus_tokens}"""
 
 
-
 @dataclasses.dataclass
 class JaipurGameState:
     goods: GoodsDeck
@@ -201,10 +201,12 @@ class JaipurGameState:
     players: dict[str, Player]
 
     def __repr__(self):
-        goods_str = str(self.goods).replace('\n', '\n\t')
-        tokens_str = str(self.tokens).replace('\n', '\n\t')
-        marketplace_str = str(self.marketplace).replace('\n', '\n\t')
-        players_str = '\n\t'.join(str(v).replace('\n', '\n\t') for v in self.players.values())
+        goods_str = str(self.goods).replace("\n", "\n\t")
+        tokens_str = str(self.tokens).replace("\n", "\n\t")
+        marketplace_str = str(self.marketplace).replace("\n", "\n\t")
+        players_str = "\n\t".join(
+            str(v).replace("\n", "\n\t") for v in self.players.values()
+        )
         return f"""GOODS:
 \t{goods_str}
 TOKENS:
@@ -246,11 +248,9 @@ class JaipurEngine:
         # adding 2 cards from shuffled cards to the marketplace
         for _ in range(2):
             good = goods.deal()
-            print('Adding good to marketplace', good)
             # This won't happen but pytype needs it
             if good is not None:
                 marketplace[good] += 1
-        print('Marketplace:', marketplace)
 
         # giving out 5 cards to each player
         for player in players.values():
@@ -258,7 +258,6 @@ class JaipurEngine:
                 # pop card from deck
                 c = goods.deal()
                 player.add_good(c)
-
 
         # setting opponent's herd size
         players[player_names[0]].opp_herd_size = players[player_names[1]].herd_size()
@@ -327,7 +326,6 @@ class JaipurEngine:
                     )
                 )
 
-        print(f"Initialized {len(actions)} actions")
         return actions
 
     def is_valid(self, player_name: str, action: JaipurAction) -> bool:
@@ -347,14 +345,17 @@ class JaipurEngine:
         elif action.action_type == ActionType.TAKE_CAMELS:
             return (
                 self.game_state.marketplace[GoodType.CAMEL] > 0
-                and player.hand_size() + self.game_state.marketplace[GoodType.CAMEL]
-                <= 7
             )
 
         elif action.action_type == ActionType.TRADE_WITH_MARKETPLACE:
             # Shouldn't happen but pytype
             if action.trade_from_hand is None or action.trade_from_marketplace is None:
                 raise ValueError("Trade action but no cards specified")
+            # Shouldn't happen
+            if GoodType.CAMEL in action.trade_from_marketplace:
+                raise ValueError(
+                    "Trade is invalid, can't have action type TRADE where we're taking camels from the marketplace"
+                )
             # If the marketplace items are all present
             for good_type, count in action.trade_from_hand.items():
                 if player.cards.get(good_type, 0) < count:
@@ -362,6 +363,11 @@ class JaipurEngine:
             for good_type, count in action.trade_from_marketplace.items():
                 if self.game_state.marketplace.get(good_type, 0) < count:
                     return False
+            # Make sure we don't end up with too many cards, since we can trade from both hand and herd
+            goods_leaving_hand = sum(v for k, v in action.trade_from_hand.items() if k != GoodType.CAMEL)
+            net_new_hand = sum(action.trade_from_marketplace.values()) - goods_leaving_hand
+            if player.hand_size() + net_new_hand > 7:
+                return False
             return True
 
         elif action.action_type == ActionType.SELL_CARDS:
@@ -390,7 +396,9 @@ class JaipurEngine:
 
         player = self.game_state.players[player_name]
         action = self.all_actions[action_idx]
-        print('Processing action', action, 'for', player_name)
+        # print("Processing action", action, "for", player_name)
+
+        player_before_action = copy.deepcopy(player)
 
         if not self.is_valid(player_name, action):
             raise ValueError("Invalid action for game state", action, self.game_state)
@@ -447,13 +455,23 @@ class JaipurEngine:
             tokens = self.game_state.tokens.take_tokens(good_type, count)
 
             if count > 3:
-                bonus_token = self.game_state.tokens.take_bonus_tokens(count)
+                # Selling more than 5 gives you the 5 bonus
+                bonus_count = min(count, 5)
+                bonus_token = self.game_state.tokens.take_bonus_tokens(bonus_count)
                 if bonus_token:
                     tokens.append(bonus_token)
             player.add_tokens(tokens)
 
         else:
             raise ValueError("Unknown action type: %s", action.action_type)
+
+        # Sanity check
+        if player.hand_size() > 7:
+            print('PLAYER BEFORE ACTION', player_before_action)
+            print('ACTION', action)
+            print('PLAYER AFTER ACTION', player)
+            raise ValueError('Player has too many cards!')
+            
 
     def finalize_round(self):
         """Call this after a round is finished. This will add the camel token."""
@@ -530,6 +548,9 @@ class JaipurEngine:
                 continue
             features.append(self.game_state.discard[good_type])
 
-        assert len(features) == 32, f"Got {len(features)} features"
-        return features
+        # And the scores for each player
+        features.append(sum(player.tokens))
+        features.append(sum(opponent.tokens))
 
+        assert len(features) == 34, f"Got {len(features)} features"
+        return features

@@ -1,3 +1,7 @@
 numpy
 pettingzoo
 gymnasium
+ray[rllib]
+StrEnum
+pydantic
+torch
