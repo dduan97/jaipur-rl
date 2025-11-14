@@ -1,0 +1,87 @@
+_wandb:
+    value:
+        cli_version: 0.23.0
+        e:
+            ifqhmgiw4ogicbfe6kut2xb4dn1wg0kd:
+                args:
+                    - --run_name
+                    - no intermediate rewards
+                    - --fcnet_hiddens
+                    - "256"
+                    - "1024"
+                    - --lr
+                    - "0.00005"
+                    - --minibatch_size
+                    - "512"
+                    - --num_sgd_iter
+                    - "10"
+                    - --train_batch_size
+                    - "3200"
+                    - --include_intermediate_rewards
+                    - "false"
+                codePath: main.py
+                codePathLocal: main.py
+                cpu_count: 2
+                cpu_count_logical: 4
+                cudaVersion: "13.0"
+                disk:
+                    /:
+                        total: "132011507712"
+                        used: "85815386112"
+                email: dduan97@gmail.com
+                executable: /home/ubuntu/miniconda3/envs/cs230/bin/python
+                git:
+                    commit: 5a0c43d63fb2f760f573f389ac3a5eaa7c73904a
+                    remote: git@github.com:dduan97/jaipur-rl.git
+                gpu: NVIDIA L4
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ada
+                      cudaCores: 7424
+                      memoryTotal: "24152899584"
+                      name: NVIDIA L4
+                      uuid: GPU-4212141d-b27b-8e46-7576-ae1828a92f35
+                host: ip-172-31-1-149
+                memory:
+                    total: "16114778112"
+                os: Linux-6.14.0-1016-aws-x86_64-with-glibc2.39
+                program: /home/ubuntu/cs230/jaipur-rl/main.py
+                python: CPython 3.10.19
+                root: /home/ubuntu/cs230/jaipur-rl
+                startedAt: "2025-11-14T19:07:59.221214Z"
+                writerId: ifqhmgiw4ogicbfe6kut2xb4dn1wg0kd
+        m: []
+        python_version: 3.10.19
+        t:
+            "1":
+                - 1
+                - 2
+                - 3
+                - 30
+            "2":
+                - 1
+                - 2
+                - 3
+                - 30
+            "3":
+                - 16
+            "4": 3.10.19
+            "5": 0.23.0
+            "12": 0.23.0
+            "13": linux-x86_64
+fcnet_hiddens:
+    value:
+        - 256
+        - 1024
+include_intermediate_rewards:
+    value: true
+lr:
+    value: 5e-05
+minibatch_size:
+    value: 512
+num_sgd_iter:
+    value: 10
+run_name:
+    value: no intermediate rewards
+train_batch_size:
+    value: 3200

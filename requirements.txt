@@ -5,3 +5,4 @@ ray[rllib]
 StrEnum
 pydantic
 torch
+wandb

@@ -9,7 +9,8 @@ from environment.jaipur_engine import JaipurEngine, ActionType
 class JaipurEnv(AECEnv):
     metadata = {"render_modes": ["human"], "name": "jaipur_v1"}
 
-    def __init__(self):
+    def __init__(self, include_intermediate_rewards=False):
+        self.include_intermediate_rewards = include_intermediate_rewards
         self.possible_agents = ["player_1", "player_2"]
         self.agents = self.possible_agents[:]
         self.agent_name_mapping = {
@@ -167,7 +168,8 @@ class JaipurEnv(AECEnv):
 
         current_score = self.engine.compute_score(current_agent)
         past_score = int(obs[-2])
-        self.rewards[current_agent] += (current_score - past_score) / 100.0
+        if self.include_intermediate_rewards:
+            self.rewards[current_agent] += (current_score - past_score) / 100.0
 
         self.agent_selection = self._next_agent()
         self._accumulate_rewards()
@@ -193,4 +195,4 @@ class JaipurEnv(AECEnv):
 
 # PettingZoo compatibility function
 def env(**kwargs):
-    return JaipurEnv()
+    return JaipurEnv(**kwargs)

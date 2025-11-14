@@ -1,0 +1,55 @@
+{
+  "os": "Linux-6.14.0-1016-aws-x86_64-with-glibc2.39",
+  "python": "CPython 3.10.19",
+  "startedAt": "2025-11-14T19:09:53.247881Z",
+  "args": [
+    "--run_name",
+    "no intermediate rewards",
+    "--fcnet_hiddens",
+    "256",
+    "1024",
+    "--lr",
+    "0.00005",
+    "--minibatch_size",
+    "512",
+    "--num_sgd_iter",
+    "10",
+    "--train_batch_size",
+    "3200"
+  ],
+  "program": "/home/ubuntu/cs230/jaipur-rl/main.py",
+  "codePath": "main.py",
+  "codePathLocal": "main.py",
+  "git": {
+    "remote": "git@github.com:dduan97/jaipur-rl.git",
+    "commit": "5a0c43d63fb2f760f573f389ac3a5eaa7c73904a"
+  },
+  "email": "dduan97@gmail.com",
+  "root": "/home/ubuntu/cs230/jaipur-rl",
+  "host": "ip-172-31-1-149",
+  "executable": "/home/ubuntu/miniconda3/envs/cs230/bin/python",
+  "cpu_count": 2,
+  "cpu_count_logical": 4,
+  "gpu": "NVIDIA L4",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "132011507712",
+      "used": "85816098816"
+    }
+  },
+  "memory": {
+    "total": "16114778112"
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA L4",
+      "memoryTotal": "24152899584",
+      "cudaCores": 7424,
+      "architecture": "Ada",
+      "uuid": "GPU-4212141d-b27b-8e46-7576-ae1828a92f35"
+    }
+  ],
+  "cudaVersion": "13.0",
+  "writerId": "40vniwr5xehqozslf90bq9wbrrwm5leq"
+}
