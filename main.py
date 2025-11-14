@@ -2,6 +2,7 @@ import numpy as np
 import os
 import argparse
 import json
+import pickle
 
 import ray
 from ray import tune
@@ -30,7 +31,12 @@ class MaskedPPOModel(TorchModelV2, nn.Module):
     """
 
     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
-        model_config = model_config or {}
+        model_config = model_config or {
+            "fcnet_hiddens": [256, 1024],  # Two hidden layers
+            "fcnet_activation": "relu",  # Specify activation function (optional, but good practice)
+        }
+
+        print("Initializing with model config", model_config)
 
         TorchModelV2.__init__(
             self, obs_space, action_space, num_outputs, model_config, name
@@ -95,7 +101,7 @@ def setup_training(env_name, model_name):
         .api_stack(
             enable_rl_module_and_learner=False, enable_env_runner_and_connector_v2=False
         )
-        .resources(num_gpus=0)
+        .resources(num_gpus=1)
         .multi_agent(
             policies={
                 # Define a single policy for self-play
@@ -104,6 +110,8 @@ def setup_training(env_name, model_name):
                         "model": {
                             "custom_model": model_name,
                             "_disable_action_flattening": True,
+                            "fcnet_hiddens": [256, 512, 1024],
+                            "fcnet_activation": "relu",
                         }
                     }
                 ),
@@ -114,34 +122,36 @@ def setup_training(env_name, model_name):
             ),
         )
         .env_runners(
-            num_env_runners=4,  
+            num_env_runners=4,
             batch_mode="complete_episodes",
             rollout_fragment_length="auto",
-        )
+        ).training(lr=0.0001)
     )
 
     config["sgd_minibatch_size"] = 256
+    config["minibatch_size"] = 256
+
     config["num_sgd_iter"] = 10
     config["train_batch_size"] = 1600
     config["gamma"] = 0.995
     config["lambda"] = 1.0
-    config["vf_clip_param"] = 50.0
 
     print("Starting Ray training...")
 
-
+    out_dir = "/home/ubuntu/cs230/checkpoints/20251113_lower_reward_scale_lr1e-4/"
     ppo = config.build()
     for i in range(500):
-        print('Step', i)
-        ppo.train()
+        result = ppo.train()
+        print("iteration: {}".format(i))
+        print(result["info"])
+        os.makedirs(f"{out_dir}/step_{i}", exist_ok=True)
+        with open(f"{out_dir}/step_{i}/result_info.pkl", "wb") as f:
+            pickle.dump(result["info"], f)
+        with open(f"{out_dir}/step_{i}/result_env_runners.pkl", "wb") as f:
+            pickle.dump(result["env_runners"], f)
         if i % 5 == 0 and i != 0:
-            out_path = f"/home/ubuntu/cs230/checkpoints/step_{i}"
+            out_path = f"{out_dir}/step_{i}"
             checkpoint = ppo.save(out_path)
-            print("SAVING CHECKPOINT", checkpoint)
-
-    out_path = "/home/ubuntu/cs230/checkpoints/final/"
-    checkpoint = ppo.save(out_path)
-    print(checkpoint)
 
 
 if __name__ == "__main__":

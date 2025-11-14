@@ -18,10 +18,11 @@ class JaipurEnv(AECEnv):
 
         self.engine = JaipurEngine(self.agents)
         self.n_actions = len(self.engine.all_actions)
+        print('Number of actions:', self.n_actions)
         self.action_spaces = {
             agent: spaces.Discrete(self.n_actions) for agent in self.agents
         }
-        self._cumulative_rewards = {agent: 0 for agent in self.agents}
+        self._cumulative_rewards = {agent: 0.0 for agent in self.agents}
 
         # Observations:
         # - marketplace (7 features, one for each goods type. Maxes are all 5)
@@ -35,7 +36,7 @@ class JaipurEnv(AECEnv):
         # - cards in the discard (6 features, one for each goods type except camel)
         # - curent score from player
         # - curent score from opponent
-        # Total: 32 features
+        # Total: 34 features
 
         self.observation_spaces = {
             agent: spaces.Dict(
@@ -97,14 +98,15 @@ class JaipurEnv(AECEnv):
     def action_space(self, agent):
         return self.action_spaces[agent]
 
-    def reset(self, seed=42, options=None, return_info=False):
+    def reset(self, seed=None, options=None, return_info=False):
         del options
-        np.random.seed(seed)
+        if seed is not None:
+            np.random.seed(seed)
         self.agents = self.possible_agents[:]
         self.agent_selection = "player_1"
 
-        self.rewards = {agent: 0 for agent in self.agents}
-        self._cumulative_rewards = {agent: 0 for agent in self.agents}
+        self.rewards = {agent: 0.0 for agent in self.agents}
+        self._cumulative_rewards = {agent: 0.0 for agent in self.agents}
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}
@@ -145,7 +147,7 @@ class JaipurEnv(AECEnv):
 
         if not mask[action]:
             print("Invalid action!")
-            self.rewards[current_agent] -= 1000
+            self.rewards[current_agent] -= 5
             # action = np.random.choice([idx for idx in range(len(mask)) if mask[idx] and self.engine.all_actions[idx].action_type != ActionType.TRADE_WITH_MARKETPLACE])
 
         # print("Action", self.engine.all_actions[action])
@@ -160,23 +162,23 @@ class JaipurEnv(AECEnv):
             agent_scores = [self.engine.compute_score(a) for a in self.agents]
             winner_idx = np.argmax(agent_scores)
 
-            self.rewards[self.agents[winner_idx]] += 100
-            self.rewards[self.agents[1 - winner_idx]] -= 100
+            self.rewards[self.agents[winner_idx]] += 1
+            self.rewards[self.agents[1 - winner_idx]] -= 1
 
         current_score = self.engine.compute_score(current_agent)
         past_score = int(obs[-2])
-        self.rewards[current_agent] += current_score - past_score
-
-        # print(
-        #     f"Step rewards for {current_agent} turn:",
-        #     self.rewards,
-        #     "for action type",
-        #     self.engine.all_actions[action].action_type,
-        # )
+        self.rewards[current_agent] += (current_score - past_score) / 100.0
 
         self.agent_selection = self._next_agent()
         self._accumulate_rewards()
         self.num_steps += 1
+
+        if self.engine.is_finished():
+            print(
+                f"Game over! Cumulative rewards:",
+                self._cumulative_rewards,
+                f"after {self.num_steps} steps.",
+            )
 
     def _next_agent(self) -> str:
         idx = self.agent_name_mapping[self.agent_selection]
