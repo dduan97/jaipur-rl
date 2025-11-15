@@ -31,18 +31,27 @@ parser.add_argument(
     action="store_true",
     help="whether to include intermediate rewards",
 )
+parser.add_argument(
+    "--num_iterations",
+    type=int,
+    help="Number of iterations to train",
+)
+parser.add_argument(
+    "--checkpoint_every", type=int, help="Checkpoint every n iterations"
+)
 
 args = parser.parse_args()
 
 
 def train(env_name, model_name, wandb_run):
+    wandb_run_id = wandb_run.id
     # Register the environment creator function
     register_env(
         env_name,
         lambda config: PettingZooEnv(
             jaipur_pettingzoo_env(
-                include_intermediate_rewards=args.include_intermediate_rewards
-            )
+                include_intermediate_rewards=args.include_intermediate_rewards,
+            ),
         ),
     )
 
@@ -81,7 +90,7 @@ def train(env_name, model_name, wandb_run):
             num_env_runners=4,
             batch_mode="complete_episodes",
             rollout_fragment_length="auto",
-            sample_timeout_s=300,
+            sample_timeout_s=600,
         )
         .training(
             lr=args.lr,
@@ -90,13 +99,20 @@ def train(env_name, model_name, wandb_run):
             num_sgd_iter=args.num_sgd_iter,
         )
     )
-
-    out_dir = (
-        "/home/ubuntu/cs230/checkpoints/20251113_lower_reward_scale_lr1e-4_2hidden/"
-    )
     ppo = config.build()
-    for i in range(500):
+
+    out_dir = f"/home/ubuntu/cs230/checkpoints/"
+    out_dir += args.run_name.replace(" ", "-")
+    out_dir += f"_lr{args.lr}_mbs{args.minibatch_size}"
+    out_dir += f"_sgditer{args.num_sgd_iter}_tbs{args.train_batch_size}"
+    out_dir += f"_hiddens"
+    for n in args.fcnet_hiddens:
+        out_dir += f"{n}-"
+    out_dir += f"_intermediaterewards{args.include_intermediate_rewards}/"
+
+    for i in range(args.num_iterations):
         result = ppo.train()
+
         print("iteration: {}".format(i))
         print(result["info"])
         os.makedirs(f"{out_dir}/step_{i}", exist_ok=True)
@@ -105,10 +121,9 @@ def train(env_name, model_name, wandb_run):
         with open(f"{out_dir}/step_{i}/result_env_runners.pkl", "wb") as f:
             pickle.dump(result["env_runners"], f)
 
-        # Log some things
+        # Log some things and increment the step counter
         wandb_run.log(
             {
-                "iteration": i,
                 "policy_loss": result["info"]["learner"]["player_policy"][
                     "learner_stats"
                 ]["policy_loss"],
@@ -121,21 +136,25 @@ def train(env_name, model_name, wandb_run):
                 "vf_explained_var": result["info"]["learner"]["player_policy"][
                     "learner_stats"
                 ]["vf_explained_var"],
-            }
+            },
+            commit=True,
         )
 
-        if i % 5 == 0 and i != 0:
+        if i % args.checkpoint_every == 0 and i != 0:
             out_path = f"{out_dir}/step_{i}"
-            checkpoint = ppo.save(out_path)
+            ppo.save(out_path)
 
 
 if __name__ == "__main__":
     # Initialize Ray
     ray.init()
 
-    run = wandb.init(project="cs230-project", config=vars(args))
+    trainer_wandb_run = wandb.init(
+        project="cs230-project",
+        config=vars(args),
+    )
 
     ENV_NAME = "JaipurAECEnv"
     MODEL_NAME = "MaskedPPOModel"
 
-    train(ENV_NAME, MODEL_NAME, run)
+    train(ENV_NAME, MODEL_NAME, trainer_wandb_run)

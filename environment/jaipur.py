@@ -17,9 +17,10 @@ class JaipurEnv(AECEnv):
             name: i for i, name in enumerate(self.possible_agents)
         }
 
+
         self.engine = JaipurEngine(self.agents)
         self.n_actions = len(self.engine.all_actions)
-        print('Number of actions:', self.n_actions)
+        print("Number of actions:", self.n_actions)
         self.action_spaces = {
             agent: spaces.Discrete(self.n_actions) for agent in self.agents
         }
@@ -149,6 +150,11 @@ class JaipurEnv(AECEnv):
         if not mask[action]:
             print("Invalid action!")
             self.rewards[current_agent] -= 5
+            self._accumulate_rewards()
+            self.num_steps += 1
+            for agent in self.agents:
+                self.terminations[agent] = True
+            return
             # action = np.random.choice([idx for idx in range(len(mask)) if mask[idx] and self.engine.all_actions[idx].action_type != ActionType.TRADE_WITH_MARKETPLACE])
 
         # print("Action", self.engine.all_actions[action])
