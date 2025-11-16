@@ -87,7 +87,8 @@ def train(env_name, model_name, wandb_run):
             ),
         )
         .env_runners(
-            num_env_runners=4,
+            num_env_runners=2,
+            num_cpus_per_env_runner=2,
             batch_mode="complete_episodes",
             rollout_fragment_length="auto",
             sample_timeout_s=600,

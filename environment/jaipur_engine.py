@@ -529,7 +529,7 @@ class JaipurEngine:
         features.append(player.herd_size())
         features.append(opponent.herd_size())
 
-        # And the goods tokens
+        # And the remaining goods tokens
         for good_type in GoodType:
             if good_type == GoodType.CAMEL:
                 continue
