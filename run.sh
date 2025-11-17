@@ -5,5 +5,5 @@ python main.py \
 	--minibatch_size 512 \
 	--num_sgd_iter 10 \
 	--train_batch_size 3200 \
-	--num_iterations 5000 \
+	--num_iterations 500 \
 	--checkpoint_every 20

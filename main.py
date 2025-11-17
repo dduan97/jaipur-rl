@@ -45,6 +45,7 @@ parser.add_argument("--vf_clip_param", type=float, help="VF clip param", default
 
 parser.add_argument("--entropy_coeff", type=float, help="Entropy coeff", default=0.0)
 parser.add_argument("--vf_loss_coeff", type=float, help="VF loss coeff", default=1.0)
+parser.add_argument("--kl_target", type=float, help="KL target", default=0.01)
 
 args = parser.parse_args()
 
@@ -105,6 +106,7 @@ def train(env_name, model_name, wandb_run):
             train_batch_size=args.train_batch_size,
             num_sgd_iter=args.num_sgd_iter,
             vf_clip_param=args.vf_clip_param,
+            kl_target=args.kl_target,
         )
     )
     ppo = config.build()
@@ -162,6 +164,7 @@ if __name__ == "__main__":
 
     trainer_wandb_run = wandb.init(
         project="cs230-project",
+        name=args.run_name,
         config=vars(args),
     )
 
