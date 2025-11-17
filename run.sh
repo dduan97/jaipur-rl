@@ -1,5 +1,5 @@
 python main.py \
-	--run_name "[hero] 3 hiddens less checkpointing" \
+	--run_name "[ablation] 3 hiddens default" \
 	--fcnet_hiddens 256 1024 4096 \
 	--lr 0.00005 \
 	--minibatch_size 512 \

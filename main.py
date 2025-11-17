@@ -40,6 +40,12 @@ parser.add_argument(
     "--checkpoint_every", type=int, help="Checkpoint every n iterations"
 )
 
+parser.add_argument("--clip_param", type=float, help="Clip param", default=0.2)
+parser.add_argument("--vf_clip_param", type=float, help="VF clip param", default=10.0)
+
+parser.add_argument("--entropy_coeff", type=float, help="Entropy coeff", default=0.0)
+parser.add_argument("--vf_loss_coeff", type=float, help="VF loss coeff", default=1.0)
+
 args = parser.parse_args()
 
 
@@ -98,6 +104,7 @@ def train(env_name, model_name, wandb_run):
             minibatch_size=args.minibatch_size,
             train_batch_size=args.train_batch_size,
             num_sgd_iter=args.num_sgd_iter,
+            vf_clip_param=args.vf_clip_param,
         )
     )
     ppo = config.build()
@@ -137,8 +144,11 @@ def train(env_name, model_name, wandb_run):
                 "vf_explained_var": result["info"]["learner"]["player_policy"][
                     "learner_stats"
                 ]["vf_explained_var"],
+                "kl": result["info"]["learner"]["player_policy"]["learner_stats"]["kl"],
+                "entropy": result["info"]["learner"]["player_policy"]["learner_stats"][
+                    "entropy"
+                ],
             },
-            commit=True,
         )
 
         if i % args.checkpoint_every == 0 and i != 0:
