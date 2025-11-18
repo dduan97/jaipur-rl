@@ -6,3 +6,4 @@ StrEnum
 pydantic
 torch
 wandb
+tqdm
