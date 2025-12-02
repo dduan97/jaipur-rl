@@ -98,7 +98,7 @@ def train(env_name, model_name, wandb_run):
             num_cpus_per_env_runner=2,
             batch_mode="complete_episodes",
             rollout_fragment_length="auto",
-            sample_timeout_s=600,
+            sample_timeout_s=1200,
         )
         .training(
             lr=args.lr,
@@ -125,11 +125,11 @@ def train(env_name, model_name, wandb_run):
 
         print("iteration: {}".format(i))
         print(result["info"])
-        os.makedirs(f"{out_dir}/step_{i}", exist_ok=True)
-        with open(f"{out_dir}/step_{i}/result_info.pkl", "wb") as f:
-            pickle.dump(result["info"], f)
-        with open(f"{out_dir}/step_{i}/result_env_runners.pkl", "wb") as f:
-            pickle.dump(result["env_runners"], f)
+        # os.makedirs(f"{out_dir}/step_{i}", exist_ok=True)
+        # with open(f"{out_dir}/step_{i}/result_info.pkl", "wb") as f:
+        #     pickle.dump(result["info"], f)
+        # with open(f"{out_dir}/step_{i}/result_env_runners.pkl", "wb") as f:
+        #     pickle.dump(result["env_runners"], f)
 
         # Log some things and increment the step counter
         wandb_run.log(
@@ -154,6 +154,7 @@ def train(env_name, model_name, wandb_run):
         )
 
         if i % args.checkpoint_every == 0 and i != 0:
+            os.makedirs(f"{out_dir}/step_{i}", exist_ok=True)
             out_path = f"{out_dir}/step_{i}"
             ppo.save(out_path)
 
