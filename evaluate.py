@@ -215,7 +215,7 @@ def evaluate(env_name, wandb_run):
                 "test_agent_avg_score": test_agent_avg_score,
                 "test_agent_win_rate": test_agent_win_rate,
                 "benchmark_agent_avg_score": benchmark_agent_avg_score,
-                "benchmark_agent_avg_score": benchmark_agent_win_rate,
+                "benchmark_agent_win_rate": benchmark_agent_win_rate,
                 # Stats on the games themselves
                 "test_agent_actions": wandb.Histogram(
                     cumulative_metrics["test_agent_actions"]
@@ -225,8 +225,8 @@ def evaluate(env_name, wandb_run):
                 ),
                 "mean_episode_length": np.mean(per_episode_metrics["num_steps"]),
                 "episode_lengths": wandb.Histogram(per_episode_metrics["num_steps"]),
+                "step": step,
             },
-            step=step,
         )
 
 
