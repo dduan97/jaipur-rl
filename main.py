@@ -46,6 +46,7 @@ parser.add_argument("--vf_clip_param", type=float, help="VF clip param", default
 parser.add_argument("--entropy_coeff", type=float, help="Entropy coeff", default=0.0)
 parser.add_argument("--vf_loss_coeff", type=float, help="VF loss coeff", default=1.0)
 parser.add_argument("--kl_target", type=float, help="KL target", default=0.01)
+parser.add_argument("--enable_parameter_noise", action="store_true", help="Enable parameter noise")
 
 args = parser.parse_args()
 
@@ -109,6 +110,12 @@ def train(env_name, model_name, wandb_run):
             kl_target=args.kl_target,
         )
     )
+
+    if args.enable_parameter_noise:
+        config = config.copy()
+        config["exploration_config"] = {"type": "ParameterNoise"}
+        config["explore"] = True
+
     ppo = config.build()
 
     out_dir = f"/home/ubuntu/cs230/checkpoints/"
