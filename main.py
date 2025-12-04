@@ -1,4 +1,5 @@
 import argparse
+import numpy as np
 import os
 import pickle
 
@@ -15,6 +16,7 @@ from environment.jaipur import env as jaipur_pettingzoo_env
 from environment.jaipur_engine import JaipurEngine
 
 from model import MaskedPPOModel
+from callbacks import get_self_play_league_callback_class
 
 parser = argparse.ArgumentParser(description="Example argparse script")
 
@@ -46,7 +48,25 @@ parser.add_argument("--vf_clip_param", type=float, help="VF clip param", default
 parser.add_argument("--entropy_coeff", type=float, help="Entropy coeff", default=0.0)
 parser.add_argument("--vf_loss_coeff", type=float, help="VF loss coeff", default=1.0)
 parser.add_argument("--kl_target", type=float, help="KL target", default=0.01)
-parser.add_argument("--enable_parameter_noise", action="store_true", help="Enable parameter noise")
+
+parser.add_argument(
+    "--enable_parameter_noise", action="store_true", help="Enable parameter noise"
+)
+parser.add_argument(
+    "--enable_league_play", action="store_true", help="Enable league play"
+)
+parser.add_argument(
+    "--league_play_num_policies",
+    type=int,
+    help="Number of policies in league play",
+    default=3,
+)
+parser.add_argument(
+    "--league_play_promotion_win_rate_threshold",
+    type=float,
+    help="Win rate threshold for promotion in league play",
+    default=0.6,
+)
 
 args = parser.parse_args()
 
@@ -66,6 +86,43 @@ def train(env_name, model_name, wandb_run):
     # Register the custom action masking model
     ModelCatalog.register_custom_model(model_name, MaskedPPOModel)
 
+    policy_dict = {
+        "main_policy": PolicySpec(
+            config={
+                "model": {
+                    "custom_model": model_name,
+                    "_disable_action_flattening": True,
+                    "fcnet_hiddens": args.fcnet_hiddens,
+                    "fcnet_activation": "relu",
+                }
+            }
+        )
+    }
+
+    if args.enable_league_play:
+        for i in range(args.league_play_num_policies):
+            policy_name = f"league_policy_{i}"
+            policy_dict[policy_name] = PolicySpec(
+                config={
+                    "model": {
+                        "custom_model": model_name,
+                        "_disable_action_flattening": True,
+                        "fcnet_hiddens": args.fcnet_hiddens,
+                        "fcnet_activation": "relu",
+                    }
+                }
+            )
+
+    def default_policy_mapping_fn(agent_id, episode, worker, **kwargs):
+        return "main_policy"
+
+    def league_play_policy_mapping_fn(agent_id, episode, worker, **kwargs):
+        if agent_id.endswith("player_1"):
+            return "main_policy"
+        else:
+            league_policy_index = np.random.randint(args.league_play_num_policies)
+            return f"league_policy_{league_policy_index}"
+
     # RLLib PPO Configuration
     config = (
         PPOConfig()
@@ -76,27 +133,17 @@ def train(env_name, model_name, wandb_run):
         )
         .resources(num_gpus=1)
         .multi_agent(
-            policies={
-                # Define a single policy for self-play
-                "player_policy": PolicySpec(
-                    config={
-                        "model": {
-                            "custom_model": model_name,
-                            "_disable_action_flattening": True,
-                            "fcnet_hiddens": args.fcnet_hiddens,
-                            "fcnet_activation": "relu",
-                        }
-                    }
-                ),
-            },
-            # map all agents to use the same policy
+            policies=policy_dict,
             policy_mapping_fn=(
-                lambda agent_id, episode, worker, **kwargs: "player_policy"
+                league_play_policy_mapping_fn
+                if args.enable_league_play
+                else default_policy_mapping_fn
             ),
+            policies_to_train=["main_policy"],
         )
         .env_runners(
-            num_env_runners=2,
-            num_cpus_per_env_runner=2,
+            num_env_runners=0,
+            # num_cpus_per_env_runner=4,
             batch_mode="complete_episodes",
             rollout_fragment_length="auto",
             sample_timeout_s=1200,
@@ -115,6 +162,15 @@ def train(env_name, model_name, wandb_run):
         config = config.copy()
         config["exploration_config"] = {"type": "ParameterNoise"}
         config["explore"] = True
+
+    if args.enable_league_play:
+        config.callbacks(
+            get_self_play_league_callback_class(
+                num_league_opponents=args.league_play_num_policies,
+                main_policy_name="main_policy",
+                promotion_win_rate_threshold=args.league_play_promotion_win_rate_threshold,
+            )
+        )
 
     ppo = config.build()
 
@@ -139,26 +195,31 @@ def train(env_name, model_name, wandb_run):
         #     pickle.dump(result["env_runners"], f)
 
         # Log some things and increment the step counter
-        wandb_run.log(
-            {
-                "policy_loss": result["info"]["learner"]["player_policy"][
-                    "learner_stats"
-                ]["policy_loss"],
-                "vf_loss": result["info"]["learner"]["player_policy"]["learner_stats"][
-                    "vf_loss"
-                ],
-                "total_loss": result["info"]["learner"]["player_policy"][
-                    "learner_stats"
-                ]["total_loss"],
-                "vf_explained_var": result["info"]["learner"]["player_policy"][
-                    "learner_stats"
-                ]["vf_explained_var"],
-                "kl": result["info"]["learner"]["player_policy"]["learner_stats"]["kl"],
-                "entropy": result["info"]["learner"]["player_policy"]["learner_stats"][
-                    "entropy"
-                ],
-            },
-        )
+        log_metrics = {
+            "policy_loss": result["info"]["learner"]["main_policy"]["learner_stats"][
+                "policy_loss"
+            ],
+            "vf_loss": result["info"]["learner"]["main_policy"]["learner_stats"][
+                "vf_loss"
+            ],
+            "total_loss": result["info"]["learner"]["main_policy"]["learner_stats"][
+                "total_loss"
+            ],
+            "vf_explained_var": result["info"]["learner"]["main_policy"][
+                "learner_stats"
+            ]["vf_explained_var"],
+            "kl": result["info"]["learner"]["main_policy"]["learner_stats"]["kl"],
+            "entropy": result["info"]["learner"]["main_policy"]["learner_stats"][
+                "entropy"
+            ],
+        }
+
+        if "league_win_rate" in result:
+            log_metrics["league_win_rate"] = result["league_win_rate"]
+        if "league_promotion" in result:
+            log_metrics["league_promotion"] = int(result["league_promotion"])
+
+        wandb_run.log(log_metrics)
 
         if i % args.checkpoint_every == 0 and i != 0:
             os.makedirs(f"{out_dir}/step_{i}", exist_ok=True)

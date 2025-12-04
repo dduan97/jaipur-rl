@@ -1,9 +1,11 @@
 python main.py \
-	--run_name "[ablation] add parameter noise" \
+	--run_name "[hero] league play win rate threshold 0.7" \
 	--fcnet_hiddens 256 1024 4096 \
 	--lr 0.00005 \
 	--minibatch_size 512 \
 	--num_sgd_iter 10 \
 	--train_batch_size 3200 \
-	--num_iterations 140 \
-	--checkpoint_every 20
+	--num_iterations 700 \
+	--checkpoint_every 20 \
+	--enable_league_play \
+	--league_play_promotion_win_rate_threshold 0.7 
