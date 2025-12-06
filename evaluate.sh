@@ -1,7 +1,13 @@
 python evaluate.py \
-	--chkpt_dir "/home/ubuntu/cs230/checkpoints/[hero]-3-hiddens-less-checkpointing_lr5e-05_mbs512_sgditer10_tbs3200_hiddens256-1024-4096-_intermediaterewardsFalse/" \
-    --min_step 20 \
-    --max_step 701 \
-    --interval_step 20 \
+	--test_chkpt_dir "/home/ubuntu/cs230/checkpoints/[hero]-3-hiddens-less-checkpointing_lr5e-05_mbs512_sgditer10_tbs3200_hiddens256-1024-4096-_intermediaterewardsFalse" \
+    --test_min_step 460 \
+    --test_max_step 461 \
+    --test_interval_step 20 \
+    --test_policy_name player_policy \
+	--benchmark_chkpt_dir "/home/ubuntu/cs230/checkpoints/[hero]-rerun-league-play-win-rate-threshold-0.7_lr5e-05_mbs512_sgditer10_tbs3200_hiddens256-1024-4096-_intermediaterewardsFalse" \
+    --benchmark_min_step 500 \
+    --benchmark_max_step 501 \
+    --benchmark_interval_step 20 \
+    --benchmark_policy_name main_policy \
     --num_eval_episodes 100 \
-    --benchmark_agent random 
+    --output_file "/home/ubuntu/cs230/eval_logs/rerun_game_sequences_selfplay460_vs_leagueplay500.txt"

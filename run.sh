@@ -1,5 +1,5 @@
 python main.py \
-	--run_name "[hero] league play win rate threshold 0.7" \
+	--run_name "[hero] rerun league play win rate threshold 0.7" \
 	--fcnet_hiddens 256 1024 4096 \
 	--lr 0.00005 \
 	--minibatch_size 512 \
